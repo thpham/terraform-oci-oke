@@ -36,7 +36,7 @@ resource "oci_core_instance" "bastion" {
   }
 
   create_vnic_details {
-    assign_public_ip = var.is_public
+    assign_public_ip = coalesce(var.public_ip, "none") != "none" ? false : var.is_public
     display_name     = "bastion-${var.state_id}"
     hostname_label   = var.assign_dns ? "b-${var.state_id}" : null
     nsg_ids          = var.nsg_ids
@@ -73,5 +73,43 @@ resource "oci_core_instance" "bastion" {
 
   timeouts {
     create = "60m"
+  }
+}
+
+
+###
+# This section relates to the fact we cannot attach the
+# reserved public ip to the bastion instance
+#
+# issue: https://github.com/oracle/terraform-provider-oci/issues/1802
+###
+data "oci_core_private_ips" "bastion" {
+  ip_address = oci_core_instance.bastion.private_ip
+  subnet_id  = var.subnet_id
+
+  depends_on = [ 
+    oci_core_instance.bastion
+  ]
+}
+
+data "oci_core_public_ip" "bastion" {
+  count = coalesce(var.public_ip, "none") != "none" ? 1 : 0
+  ip_address = var.public_ip
+}
+
+resource "oci_core_public_ip" "bastion" {
+  count = coalesce(var.public_ip, "none") != "none" ? 1 : 0
+
+  compartment_id = data.oci_core_public_ip.bastion[0].compartment_id
+  display_name   = data.oci_core_public_ip.bastion[0].display_name
+  lifetime       = data.oci_core_public_ip.bastion[0].lifetime
+  private_ip_id  = data.oci_core_private_ips.bastion.private_ips[0]["id"]
+
+  depends_on = [ 
+    data.oci_core_public_ip.bastion
+  ]
+  
+  lifecycle {
+    prevent_destroy = true
   }
 }
