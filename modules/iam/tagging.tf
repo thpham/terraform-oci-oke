@@ -30,8 +30,8 @@ locals {
   create_iam_tag_namespace = alltrue([
     var.create_iam_resources,
     var.create_iam_tag_namespace,
-    local.tag_namespace_id_found == null,
-    one(data.oci_identity_tags.oke[*].tags) == null,
+    #local.tag_namespace_id_found == null,
+    #one(data.oci_identity_tags.oke[*].tags) == null,
   ])
 
   # Map of standard tags & descriptions to be created if enabled
